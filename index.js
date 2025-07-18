@@ -23,13 +23,50 @@ const PLAYER = Object.freeze({
     P2: 1,
 })
 
+class FrameBuffer {
+    constructor(length) {
+        this.length = length;
+        this.backing_array = new Array(length);
+        this.first_frame = -length;
+        this.next = 0;
+    }
+    get(frame) {
+        if (frame < this.first_frame || frame >= this.first_frame + this.length) {
+            return -1;
+        }
+        return this.backing_array[(frame - this.first_frame + this.next) % this.length];
+    }
+    push(data) {
+        this.backing_array[this.next] = data;
+        this.next = (this.next + 1) % this.length;
+        this.first_frame += 1;
+    }
+    set(frame, data) {
+        if (frame < this.first_frame || frame >= this.first_frame + this.length) {
+            return -1;
+        }
+        this.backing_array[(frame - this.first_frame + this.next) % this.length] =
+            data;
+        return 1;
+    }
+}
 
-let frame = 0;
-let last_sync = 0;
+
+let local_frame = 0;
+let local_last_sync = 0;
 
 let local_player = Math.floor(Math.random()*2) == 0 ? PLAYER.P1 : PLAYER.P2;
 
 
+
+
+// ring buffer for last 20ish frames of input
+// ring buffer for remote player
+// message (start_frame of input) 20 bits of input (10 frames)
+
+const local_input_buffer = new FrameBuffer(20);
+const remote_input_buffer = new FrameBuffer(20);
+const state_buffer = new FrameBuffer(20);
 
 
 // 6f startup 3f active 10f recovery
@@ -67,7 +104,7 @@ function update() {
 
     // check for collisions and stuff
     check_collision();
-    frame += 1;
+    local_frame++;
 }
 
 function update_local_input(input) {
@@ -97,8 +134,11 @@ function update_player_input(player_enum, input) {
                 player.x_pos -= 4;
             }
         }
+
+        // DO THIS AFTER both player inputs
         player.x_pos = Math.max(player.x_pos, boxMin); 
         player.x_pos = Math.min(player.x_pos, boxMax);
+
         if (player_enum == PLAYER.P1) {
             player.x_pos = Math.min(player.x_pos, state.player2.x_pos-150);
         } else {
@@ -111,8 +151,8 @@ function update_player_input(player_enum, input) {
 }
 
 function sync () {
-    // let temp_state =
-    // extract array of inputs from most recent packet
+    // let  = temp_state
+    // extract array of inputs from most recent packet structureClone
     // last_frame = udp.start_frame + ARRAY_LENGTH
     
     // for i from last_sync to last_frame:
@@ -123,12 +163,12 @@ function sync () {
     // simulate game with those inputs
     // last_sync = last_frame
     // for last_sync to last_
-
 }
 
 const pressedKeys = new Set();
 
 document.addEventListener('keydown', (event) => {
+    // only add if event.repeat is false
     pressedKeys.add(event.code);
 });
 
@@ -141,7 +181,7 @@ const canvas = document.getElementById("canvas");
 function draw() {
   if (canvas.getContext) {
     const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, 1000, 500);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     const p1_pos = state.player1.x_pos;
     const p2_pos = state.player2.x_pos;
     ctx.strokeRect(p1_pos, 250, spriteWidth, 200);
@@ -176,24 +216,27 @@ function draw() {
 const timestep = 1000 / 60; // 1/60fps
 
 
-fetch("http://localhost:7878", {
-  method: "POST",
-})
-  .then((response) => {
-    // Check if the request was successful
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.text(); // Return a Promise that resolves with the text content
-  })
-  .then((textContent) => {
-    console.log(textContent); // This will log "hello world"
-    previous = Date.now();
-    requestAnimationFrame(mainLoop);
-  })
-  .catch((error) => {
-    console.error("There was a problem with the fetch operation:", error);
-  });
+// maybe some tag for fingerprints
+// fetch("http://localhost:7878", {
+//   method: "POST",
+// })
+//   .then((response) => {
+//     // Check if the request was successful
+//     if (!response.ok) {
+//       throw new Error(`HTTP error! status: ${response.status}`);
+//     }
+//     return response.text(); // Return a Promise that resolves with the text content
+//   })
+//   .then((textContent) => {
+//     console.log(textContent); // This will log "hello world"
+//     previous = Date.now();
+//     // pause until timestamp given by server
+
+//     requestAnimationFrame(mainLoop);
+//   })
+//   .catch((error) => {
+//     console.error("There was a problem with the fetch operation:", error);
+//   });
 
 
 
@@ -203,7 +246,8 @@ function mainLoop() {
     previous = current;
     lag += elapsed;
     // let count = 0;
-    while (lag >= timestep) {
+    if (lag >= timestep) {
+        while (lag >= timestep) {
         update();
         // count++;
         // if (count > 1) {
@@ -211,8 +255,9 @@ function mainLoop() {
         //     console.log(count);
         // }
         lag -= timestep;
+        }
+        draw();
     }
-    draw();
     if (!true_game_over) {
         requestAnimationFrame(mainLoop);
     }
