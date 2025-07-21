@@ -6,7 +6,7 @@ const hitbox_width = 120;
 let true_game_over = false;
 
 
-var state = {
+let state = {
     player1: {
         x_pos: 150,
         punch_frame: 0,
@@ -27,12 +27,12 @@ class FrameBuffer {
     constructor(length) {
         this.length = length;
         this.backing_array = new Array(length);
-        this.first_frame = -length;
+        this.first_frame = -length+1;
         this.next = 0;
     }
     get(frame) {
-        if (frame < this.first_frame || frame >= this.first_frame + this.length) {
-            return -1;
+        if (frame < this.first_frame || frame >= this.first_frame + this.length || frame < 0) {
+            return INPUT.NONE;
         }
         return this.backing_array[(frame - this.first_frame + this.next) % this.length];
     }
@@ -52,11 +52,13 @@ class FrameBuffer {
 }
 
 
-let local_frame = 0;
+let local_frame = 1; // should this start at 1 or 0?
 let local_last_sync = 0;
+// let local_player = Math.floor(Math.random()*2) == 0 ? PLAYER.P1 : PLAYER.P2;
+// let remote_player = local_player == PLAYER.P1 ? PLAYER.P2 : PLAYER.P1;
 
-let local_player = Math.floor(Math.random()*2) == 0 ? PLAYER.P1 : PLAYER.P2;
-
+let local_player = PLAYER.P1;
+let remote_player = PLAYER.P2;
 
 
 
@@ -96,14 +98,17 @@ function update() {
     }
 
 
-    // call sync? or should sync be asynchronous when each input comes in
-    sync();
+    // call sync
 
-    // this should probably be a method with input input
+
+    // this should probably be a method with input
     update_player_input(local_player, input);
-
+    local_input_buffer.push(input);
+    demo_sync();
     // check for collisions and stuff
     check_collision();
+    state_buffer.push(structuredClone(state));
+
     local_frame++;
 }
 
@@ -117,6 +122,26 @@ function update_local_input(input) {
 
 
 function check_collision() {
+
+    // check for hitbox collision
+    const p1 = state.player1;
+    const p2 = state.player2;
+    p1.x_pos = Math.max(p1.x_pos, boxMin);
+    p2.x_pos = Math.min(p2.x_pos, boxMax);
+    
+    if (p2.x_pos - p1.x_pos < 60) {
+        const diff = 60-(p2.x_pos - p1.x_pos);
+        if (p1.x_pos == boxMin) {
+            p2.x_pos += diff;
+        } else if (p2.x_pos == boxMax) {
+            p1.x_pos -= diff;
+        } else {
+            p1.x_pos -= diff / 2;
+            p2.x_pos += diff / 2;
+        }
+    }
+
+
     // check collision with two hitboxes
 }
 
@@ -134,37 +159,85 @@ function update_player_input(player_enum, input) {
                 player.x_pos -= 4;
             }
         }
-
-        // DO THIS AFTER both player inputs
-        player.x_pos = Math.max(player.x_pos, boxMin); 
-        player.x_pos = Math.min(player.x_pos, boxMax);
-
-        if (player_enum == PLAYER.P1) {
-            player.x_pos = Math.min(player.x_pos, state.player2.x_pos-150);
-        } else {
-            player.x_pos = Math.max(player.x_pos, state.player1.x_pos+150);
-        }
-
     } else {
         player.punch_frame -= 1;
     }
 }
 
-function sync () {
-    // let  = temp_state
-    // extract array of inputs from most recent packet structureClone
-    // last_frame = udp.start_frame + ARRAY_LENGTH
+// function sync () {
+//     // let  = temp_state
+//     // extract array of inputs from most recent packet structureClone
+//     // last_frame = udp.start_frame + ARRAY_LENGTH
     
-    // for i from last_sync to last_frame:
-    //     if input[i] == predictedinput[i]:
-                //pass
-            //else:
-            // break
-    // simulate game with those inputs
-    // last_sync = last_frame
-    // for last_sync to last_
-}
+//     // for i from last_sync to last_frame:
+//     //     if input[i] == predictedinput[i]:
+//                 //pass
+//             //else:
+//             // break
+//     // simulate game with those inputs
+//     // last_sync = last_frame
+//     // for last_sync to last_
+// }
 
+
+const demo_lag = 5;
+const packet_length = 10;
+
+function demo_sync() {
+    if (local_frame <= demo_lag) {
+        remote_input_buffer.push(INPUT.NONE);
+    } else {
+        const start_frame = local_frame - demo_lag - packet_length + 1;
+        const remote_msg = Array(packet_length);
+        for (let i = 0; i < packet_length; i++) {
+            switch (local_input_buffer.get(start_frame+i)) {
+                case INPUT.LEFT:
+                    remote_msg.push(INPUT.RIGHT);
+                    break;
+                case INPUT.RIGHT:
+                    remote_msg.push(INPUT.LEFT);
+                    break;
+                case INPUT.PUNCH:
+                    remote_msg.push(INPUT.PUNCH);
+                    break;
+                default:
+                    remote_msg.push(INPUT.NONE);
+            }
+        }
+        let i = local_last_sync + 1;
+        for(;i < start_frame + packet_length; i++) {
+            console.log("hit1");
+            if (remote_input_buffer.get(i) != remote_msg[i-start_frame]) {
+                console.log("hit2");
+                break;
+            }
+        }
+        state = state_buffer.get(i - 1);
+
+
+        // for loop from end of diff to packet_length
+        for(; i < start_frame + packet_length; i++) {
+            remote_input_buffer.set(i, remote_msg[i-start_frame]);
+            update_player_input(local_player, local_input_buffer.get(i));
+            update_player_input(remote_player, remote_input_buffer.get(i));
+            check_collision();
+            state_buffer.set(i, structuredClone(state));
+        }
+        const last_input = remote_msg.at(-1);
+
+        for(; i <= local_frame; i++) {
+            remote_input_buffer.set(i, last_input);            
+            update_player_input(local_player, local_input_buffer.get(i));
+            update_player_input(remote_player, remote_input_buffer.get(i));
+            check_collision();
+            state_buffer.set(i, structuredClone(state));
+        }
+        remote_input_buffer.push(last_input);
+        update_player_input(remote_player, last_input);
+        local_last_sync = Math.max(local_last_sync, start_frame + packet_length);
+    }
+    
+}
 const pressedKeys = new Set();
 
 document.addEventListener('keydown', (event) => {
@@ -213,7 +286,7 @@ function draw() {
 }
 
 
-const timestep = 1000 / 60; // 1/60fps
+const timestep = 1000 / 6; // 1/60fps
 
 
 // maybe some tag for fingerprints
@@ -245,7 +318,7 @@ function mainLoop() {
     let elapsed = current - previous;
     previous = current;
     lag += elapsed;
-    // let count = 0;
+    let count = 0;
     if (lag >= timestep) {
         while (lag >= timestep) {
         update();
@@ -267,5 +340,5 @@ function mainLoop() {
 let lag = 0;
 let previous = Date.now();
 
-
+state_buffer.set(0, structuredClone(state));
 requestAnimationFrame(mainLoop);
