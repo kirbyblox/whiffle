@@ -286,7 +286,7 @@ function draw() {
 }
 
 
-const timestep = 1000 / 6; // 1/60fps
+const timestep = 1000 / 15; // 1/60fps, demo speed at 15 fps?
 
 
 // maybe some tag for fingerprints
