@@ -183,12 +183,17 @@ function update_player_input(player_enum, input) {
 const demo_lag = 5;
 const packet_length = 10;
 
+// todo get working with demo_lag = 0, 1.
+// debug with completely going back (with 0 there should be no going backwards basically)
+// demo lag = 2, synced up, but when 1 it doesn't
+// probably just work from beginning on paper, thinking through edge cases and whatnot
+
 function demo_sync() {
     if (local_frame <= demo_lag) {
         remote_input_buffer.push(INPUT.NONE);
     } else {
         const start_frame = local_frame - demo_lag - packet_length + 1;
-        const remote_msg = Array(packet_length);
+        const remote_msg = Array();
         for (let i = 0; i < packet_length; i++) {
             switch (local_input_buffer.get(start_frame+i)) {
                 case INPUT.LEFT:
@@ -206,9 +211,9 @@ function demo_sync() {
         }
         let i = local_last_sync + 1;
         for(;i < start_frame + packet_length; i++) {
-            console.log("hit1");
+            // console.log("hit1");
             if (remote_input_buffer.get(i) != remote_msg[i-start_frame]) {
-                console.log("hit2");
+                // console.log("hit2");
                 break;
             }
         }
@@ -236,7 +241,6 @@ function demo_sync() {
         update_player_input(remote_player, last_input);
         local_last_sync = Math.max(local_last_sync, start_frame + packet_length);
     }
-    
 }
 const pressedKeys = new Set();
 
