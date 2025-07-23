@@ -189,7 +189,7 @@ function update_player_input(player_enum, input) {
 // }
 
 
-const demo_lag = 5;
+const demo_lag = 2;
 const packet_length = 10;
 
 // TODO: get working with demo_lag = 0, 1.
@@ -199,7 +199,10 @@ const packet_length = 10;
 
 function demo_sync() {
     if (local_frame <= demo_lag) {
-        remote_input_buffer.push(INPUT.NONE);
+        remote_input_buffer.set(local_frame, INPUT.NONE);
+        check_collision();
+        state_buffer.set(local_frame, structuredClone(state));
+
     } else {
         const start_frame = local_frame - demo_lag - packet_length + 1;
         const remote_msg = Array();
@@ -248,7 +251,7 @@ function demo_sync() {
             remote_input_buffer.set(i, last_input);
             update_player_input(local_player, local_input_buffer.get(i));
             update_player_input(remote_player, remote_input_buffer.get(i));
-            check_collision();
+            check_collision()
             state_buffer.set(i, structuredClone(state));
         }
         local_last_sync = Math.max(local_last_sync, start_frame + packet_length - 1); // should be start_frame + packet_length -1 ? but breaks things
