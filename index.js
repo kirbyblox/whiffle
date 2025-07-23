@@ -42,7 +42,11 @@ class FrameBuffer {
         this.first_frame += 1;
     }
     set(frame, data) {
-        if (frame < this.first_frame || frame >= this.first_frame + this.length) {
+        if (frame == this.first_frame+this.length) {
+            this.push(data);
+            return 2;
+        } else if (frame < this.first_frame || frame >= this.first_frame + this.length) {
+            console.log("set error");
             return -1;
         }
         this.backing_array[(frame - this.first_frame + this.next) % this.length] =
@@ -82,6 +86,10 @@ const INPUT = Object.freeze({
 
 const spriteWidth = 50;
 
+
+const timestep = 1000 / 10; // in ms so (1000ms / 1s) /60fps => 1000/60 ms per frame, demo speed at 15 fps?
+
+
 function update() {
     let input = INPUT.NONE;
     if (pressedKeys.has('KeyC')) {
@@ -102,12 +110,13 @@ function update() {
 
 
     // this should probably be a method with input
-    update_player_input(local_player, input);
+    // update_player_input(local_player, input);
     local_input_buffer.push(input);
     demo_sync();
     // check for collisions and stuff
-    check_collision();
-    state_buffer.push(structuredClone(state));
+    // update_player_input(local_player, input);
+    // check_collision();
+    // state_buffer.push(structuredClone(state));
 
     local_frame++;
 }
@@ -183,7 +192,7 @@ function update_player_input(player_enum, input) {
 const demo_lag = 5;
 const packet_length = 10;
 
-// todo get working with demo_lag = 0, 1.
+// TODO: get working with demo_lag = 0, 1.
 // debug with completely going back (with 0 there should be no going backwards basically)
 // demo lag = 2, synced up, but when 1 it doesn't
 // probably just work from beginning on paper, thinking through edge cases and whatnot
@@ -210,14 +219,17 @@ function demo_sync() {
             }
         }
         let i = local_last_sync + 1;
-        for(;i < start_frame + packet_length; i++) {
-            // console.log("hit1");
-            if (remote_input_buffer.get(i) != remote_msg[i-start_frame]) {
-                // console.log("hit2");
-                break;
-            }
-        }
-        state = state_buffer.get(i - 1);
+        // console.log("hit0");
+        // for(;i < start_frame + packet_length; i++) {
+        //     console.log("hit1");
+        //     if (remote_input_buffer.get(i+1) != remote_msg[i-start_frame-1] || state_buffer.get(i+1) == 0) {
+        //         console.log("hit2");
+        //         break;
+        //     }
+        // }
+        // seems to be going 1 state too far?
+
+        state = state_buffer.get(i-1);
 
 
         // for loop from end of diff to packet_length
@@ -229,17 +241,17 @@ function demo_sync() {
             state_buffer.set(i, structuredClone(state));
         }
         const last_input = remote_msg.at(-1);
-
+        
         for(; i <= local_frame; i++) {
-            remote_input_buffer.set(i, last_input);            
+            // console.log("hit last");
+            // why <=  instead of <?? 
+            remote_input_buffer.set(i, last_input);
             update_player_input(local_player, local_input_buffer.get(i));
             update_player_input(remote_player, remote_input_buffer.get(i));
             check_collision();
             state_buffer.set(i, structuredClone(state));
         }
-        remote_input_buffer.push(last_input);
-        update_player_input(remote_player, last_input);
-        local_last_sync = Math.max(local_last_sync, start_frame + packet_length);
+        local_last_sync = Math.max(local_last_sync, start_frame + packet_length - 1); // should be start_frame + packet_length -1 ? but breaks things
     }
 }
 const pressedKeys = new Set();
@@ -289,8 +301,6 @@ function draw() {
   }
 }
 
-
-const timestep = 1000 / 15; // 1/60fps, demo speed at 15 fps?
 
 
 // maybe some tag for fingerprints
