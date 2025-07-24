@@ -57,7 +57,7 @@ class FrameBuffer {
 
 
 let local_frame = 1; // should this start at 1 or 0?
-let local_last_sync = 0;
+let local_last_sync = -1;
 // let local_player = Math.floor(Math.random()*2) == 0 ? PLAYER.P1 : PLAYER.P2;
 // let remote_player = local_player == PLAYER.P1 ? PLAYER.P2 : PLAYER.P1;
 
@@ -87,7 +87,7 @@ const INPUT = Object.freeze({
 const spriteWidth = 50;
 
 
-const timestep = 1000 / 10; // in ms so (1000ms / 1s) /60fps => 1000/60 ms per frame, demo speed at 15 fps?
+const timestep = 1000 / 60; // in ms so (1000ms / 1s) /60fps => 1000/60 ms per frame, demo speed at 15 fps?
 
 
 function update() {
@@ -111,8 +111,9 @@ function update() {
 
     // this should probably be a method with input
     // update_player_input(local_player, input);
-    local_input_buffer.push(input);
-    demo_sync();
+    local_input_buffer.set(local_frame,input);
+    // demo_sync();
+    sync();
     // check for collisions and stuff
     // update_player_input(local_player, input);
     // check_collision();
@@ -192,18 +193,81 @@ function update_player_input(player_enum, input) {
 const demo_lag = 2;
 const packet_length = 10;
 
-// TODO: get working with demo_lag = 0, 1.
-// debug with completely going back (with 0 there should be no going backwards basically)
-// demo lag = 2, synced up, but when 1 it doesn't
-// probably just work from beginning on paper, thinking through edge cases and whatnot
+// TODO: try to get fast forward to last decent spot
+// TODO: check if local_last_sync > start_frame + packet_length case (seems to not work with variable syncing)
 
-function demo_sync() {
-    if (local_frame <= demo_lag) {
+// function demo_sync() {
+//     // const demo_lag = Math.floor(Math.random() * 3);
+//     if (local_last_sync == -1) {
+//         remote_input_buffer.set(local_frame, INPUT.NONE);
+//         check_collision();
+//         state_buffer.set(local_frame, structuredClone(state));
+//     } else {
+//         const start_frame = local_frame - demo_lag - packet_length + 1;
+//         const remote_msg = Array();
+//         for (let i = 0; i < packet_length; i++) {
+//             switch (local_input_buffer.get(start_frame+i)) {
+//                 case INPUT.LEFT:
+//                     remote_msg.push(INPUT.RIGHT);
+//                     break;
+//                 case INPUT.RIGHT:
+//                     remote_msg.push(INPUT.LEFT);
+//                     break;
+//                 case INPUT.PUNCH:
+//                     remote_msg.push(INPUT.PUNCH);
+//                     break;
+//                 default:
+//                     remote_msg.push(INPUT.NONE);
+//             }
+//         }
+//         let i = local_last_sync + 1;
+//         // console.log("hit0");
+//         // for(;i < start_frame + packet_length; i++) {
+//         //     console.log("hit1");
+//         //     if (remote_input_buffer.get(i+1) != remote_msg[i-start_frame-1] || state_buffer.get(i+1) == 0) {
+//         //         console.log("hit2");
+//         //         break;
+//         //     }
+//         // }
+//         // seems to be going 1 state too far?
+
+//         state = state_buffer.get(i-1);
+
+
+//         // for loop from end of diff to packet_length
+//         for(; i < start_frame + packet_length; i++) {
+//             remote_input_buffer.set(i, remote_msg[i-start_frame]);
+//             update_player_input(local_player, local_input_buffer.get(i));
+//             update_player_input(remote_player, remote_input_buffer.get(i));
+//             check_collision();
+//             state_buffer.set(i, structuredClone(state));
+//         }
+//         const last_input = remote_msg.at(-1);
+        
+//         for(; i <= local_frame; i++) {
+//             // console.log("hit last");
+//             // why <=  instead of <?? 
+//             remote_input_buffer.set(i, last_input);
+//             update_player_input(local_player, local_input_buffer.get(i));
+//             update_player_input(remote_player, remote_input_buffer.get(i));
+//             check_collision()
+//             state_buffer.set(i, structuredClone(state));
+//         }
+//         local_last_sync = Math.max(local_last_sync, start_frame + packet_length - 1); // should be start_frame + packet_length -1 ? but breaks things
+//     }
+// }
+
+function sync() {
+    if (local_last_sync == -1) {
+        update_player_input(local_player, local_input_buffer.get(local_frame));
         remote_input_buffer.set(local_frame, INPUT.NONE);
         check_collision();
         state_buffer.set(local_frame, structuredClone(state));
-
+        if (demo_lag < local_last_sync) {
+            local_last_sync = 0;
+        }
     } else {
+    // switch out this section with real thing later
         const start_frame = local_frame - demo_lag - packet_length + 1;
         const remote_msg = Array();
         for (let i = 0; i < packet_length; i++) {
@@ -221,42 +285,27 @@ function demo_sync() {
                     remote_msg.push(INPUT.NONE);
             }
         }
-        let i = local_last_sync + 1;
-        // console.log("hit0");
-        // for(;i < start_frame + packet_length; i++) {
-        //     console.log("hit1");
-        //     if (remote_input_buffer.get(i+1) != remote_msg[i-start_frame-1] || state_buffer.get(i+1) == 0) {
-        //         console.log("hit2");
-        //         break;
-        //     }
-        // }
-        // seems to be going 1 state too far?
-
-        state = state_buffer.get(i-1);
 
 
-        // for loop from end of diff to packet_length
-        for(; i < start_frame + packet_length; i++) {
-            remote_input_buffer.set(i, remote_msg[i-start_frame]);
-            update_player_input(local_player, local_input_buffer.get(i));
-            update_player_input(remote_player, remote_input_buffer.get(i));
+        if (start_frame + packet_length - 1 <= local_last_sync) {
+            remote_input_buffer.set(local_frame, remote_input_buffer.get(local_frame-1));
+            update_player_input(local_player, local_input_buffer.get(local_frame));
+            update_player_input(remote_player, remote_input_buffer.get(local_frame));
             check_collision();
-            state_buffer.set(i, structuredClone(state));
+            state_buffer.set(local_frame, structuredClone(state));
+        } else {
+
+
+
+
+
+            local_last_sync = Math.max(local_last_sync, start_frame + packet_length - 1)
         }
-        const last_input = remote_msg.at(-1);
-        
-        for(; i <= local_frame; i++) {
-            // console.log("hit last");
-            // why <=  instead of <?? 
-            remote_input_buffer.set(i, last_input);
-            update_player_input(local_player, local_input_buffer.get(i));
-            update_player_input(remote_player, remote_input_buffer.get(i));
-            check_collision()
-            state_buffer.set(i, structuredClone(state));
-        }
-        local_last_sync = Math.max(local_last_sync, start_frame + packet_length - 1); // should be start_frame + packet_length -1 ? but breaks things
     }
 }
+
+
+
 const pressedKeys = new Set();
 
 document.addEventListener('keydown', (event) => {
@@ -329,6 +378,120 @@ function draw() {
 //   });
 
 
+let pc;
+let dc;
+let partnerKey;
+
+const ws = new WebSocket("ws://localhost:8001");
+ws.onopen = () => {
+    console.log("Connected to signaling server.");
+    const payload = {
+        type: "init",
+    };
+    ws.send(JSON.stringify(payload));
+};
+
+// websockets
+function sendMessage(message) {
+    const payload = {
+        type: "message",
+        key: partnerKey,
+        ...message
+    };
+    ws.send(JSON.stringify(payload));
+}
+
+// handle messages from signaling server
+ws.onmessage = async (message) => {
+    const event = JSON.parse(message.data);
+
+    switch (event.type) {
+        case "waiting":
+            console.log(event.message);
+            break;
+        case "partner":
+            console.log(`Partner found! Their key is ${event.key}`);
+            partnerKey = event.key;
+            if (event.p1) {
+                local_player = PLAYER.P1;
+                remote_player = PLAYER.P2;
+                console.log("I am Peer 1, creating offer...");
+                await createPeerConnection();
+                object = {
+                    "ordered": false,
+                    "maxRetransmits": 0,
+                }
+                dc = pc.createDataChannel("chat", object);
+                setupDataChannel();
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                sendMessage({ sdp: pc.localDescription });
+            } else {
+                local_player = PLAYER.P2;
+                remote_player = PLAYER.P1;
+            }
+            break;
+        case "message":
+            if (event.sdp) {
+                if (!pc) {
+                    await createPeerConnection();
+                }
+                await pc.setRemoteDescription(new RTCSessionDescription(event.sdp));
+                
+                if (event.sdp.type === 'offer') {
+                    console.log("Received offer, creating answer...");
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    sendMessage({ sdp: pc.localDescription });
+                }
+            } else if (event.candidate) {
+                // Add the incoming ICE candidate
+                await pc.addIceCandidate(new RTCIceCandidate(event.candidate));
+            }
+            break;
+        case "error":
+            console.log(`Error: ${event.message}`);
+            break;
+    }
+};
+async function createPeerConnection() {
+    pc = new RTCPeerConnection();
+
+    pc.onicecandidate = e => {
+        if (e.candidate) {
+            sendMessage({ candidate: e.candidate });
+        }
+    };
+
+    pc.oniceconnectionstatechange = e => console.log(`ICE Connection State: ${pc.iceConnectionState}`);
+
+    pc.ondatachannel = e => {
+        dc = e.channel;
+        setupDataChannel();
+    };
+}
+
+function setupDataChannel() {
+    dc.onopen = () => {
+        console.log("start");
+        lag = 0;
+        previous = Date.now();
+        state_buffer.set(0, structuredClone(state));
+        requestAnimationFrame(mainLoop);
+    };
+
+    dc.onmessage = ({ data }) => {
+
+    }
+}
+
+// chatInput.onkeypress = ({ keyCode }) => {
+//     if (keyCode !== 13 || chatInput.value === "") return;
+//     dc.send(chatInput.value);
+//     console.log(`< ${chatInput.value}`); 
+//     chatInput.value = "";
+// };
+
 
 function mainLoop() {
     let current = Date.now();
@@ -354,8 +517,8 @@ function mainLoop() {
 } 
 
 
-let lag = 0;
-let previous = Date.now();
+// let lag;
+// let previous;
 
-state_buffer.set(0, structuredClone(state));
-requestAnimationFrame(mainLoop);
+// state_buffer.set(0, structuredClone(state));
+// requestAnimationFrame(mainLoop);
