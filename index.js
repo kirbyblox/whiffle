@@ -5,6 +5,8 @@ const hitbox_width = 120;
 
 let true_game_over = false;
 
+let winner;
+
 
 let state = {
     player1: {
@@ -160,6 +162,84 @@ function check_collision() {
 
 
     // check collision with two hitboxes
+
+    p1_body = {
+        x_0 : p1.x_pos,
+        x_1 : p1.x_pos + spriteWidth,
+        y_0 : 250,
+        y_1 : 450,
+    }
+    p1_fist = {
+        x_0 : p1.x_pos + spriteWidth + 20,
+        x_1 : p1.x_pos + spriteWidth + 20 + 120,
+        y_0 : 300,
+        y_1 : 335,
+    }
+    p1_arm = {
+        x_0 : p1.x_pos + spriteWidth + 20,
+        x_1 : p1.x_pos + spriteWidth + 20 + 60,
+        y_0 : 300,
+        y_1 : 335,
+    }
+    p2_body = {
+        x_0 : p2.x_pos,
+        x_1 : p2.x_pos + spriteWidth,
+        y_0 : 250,
+        y_1 : 450,
+    }
+    p2_fist = {
+        x_0 : p2.x_pos - hitbox_width - 20,
+        x_1 : p2.x_pos - hitbox_width - 20 + 120,
+        y_0 : 300,
+        y_1 : 335,
+    }
+    p2_arm = {
+        x_0 : p2.x_pos - 60 - 20,
+        x_1 : p2.x_pos - 60 - 20 + 60,
+        y_0 : 300,
+        y_1 : 335,
+    }
+
+    if (p1.punch_frame <= 12 && p1.punch_frame >= 10) {
+        if (p2.punch_frame >= 13 || p2.punch_frame <= 9 && p2.punch_frame >= 5) {
+            if (collides(p1_fist, p2_arm)) {
+                state.game_over = true;
+                true_game_over = true;
+                winner = PLAYER.P1;
+            }
+        }
+        if (collides(p1_fist, p2_body)) {
+            state.game_over = true;
+            true_game_over = true;
+            winner = PLAYER.P1;
+
+        }
+    }
+    if (p2.punch_frame <= 12 && p2.punch_frame >= 10) {
+        if (p1.punch_frame >= 13 || p1.punch_frame <= 9 && p1.punch_frame >= 5) {
+            if (collides(p2_fist, p1_arm)) {
+                state.game_over = true;
+                true_game_over = true;
+                winner = PLAYER.P2;
+            }
+        }
+        if (collides(p2_fist, p1_body)) {
+            state.game_over = true;
+            true_game_over = true;
+            winner = PLAYER.P2;
+
+        }
+    }
+
+}
+
+function collides(rect1, rect2) {
+    if (rect1.x_1 >= rect2.x_0 &&    // r1 right edge past r2 left
+      rect1.x_0 <= rect2.x_1 &&    // r1 left edge past r2 right
+      rect1.y_1 >= rect2.y_0 &&    // r1 top edge past r2 bottom
+      rect1.y_0 <= rect2.y_1) {    // r1 bottom edge past r2 top
+        return true;
+  }
 }
 
 
@@ -394,6 +474,17 @@ function draw() {
     } else {
         ctx.strokeRect(p2_pos-60-20, 300, 60, 35);
     }
+
+
+    if (true_game_over) {
+        ctx.textAlign = "center";
+        ctx.font = "40px serif";
+        if (winner == PLAYER.P1) {
+            ctx.fillText('Player 1 wins!', canvas.width / 2, canvas.height / (2/3));
+        } else {
+            ctx.fillText('Player 2 wins!', canvas.width / 2, canvas.height / (2/3));
+        }
+    }
   }
 }
 
@@ -545,7 +636,7 @@ function mainLoop() {
     let elapsed = current - previous;
     previous = current;
     lag += elapsed;
-    let count = 0;
+    // let count = 0;
     if (lag >= timestep) {
         while (lag >= timestep) {
         update();
