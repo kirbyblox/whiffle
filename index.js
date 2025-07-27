@@ -75,6 +75,11 @@ const remote_input_buffer = new FrameBuffer(20);
 const state_buffer = new FrameBuffer(20);
 
 
+let remote_data = {
+    s: -1, // start_frame
+    a: Array(),// array
+}
+
 // 6f startup 3f active 10f recovery
 
 const INPUT = Object.freeze({
@@ -112,6 +117,8 @@ function update() {
     // this should probably be a method with input
     // update_player_input(local_player, input);
     local_input_buffer.set(local_frame,input);
+
+    send_data();
     // demo_sync();
     sync();
     // check for collisions and stuff
@@ -190,7 +197,7 @@ function update_player_input(player_enum, input) {
 // }
 
 
-const demo_lag = 2;
+// const demo_lag = 2;
 const packet_length = 10;
 
 // TODO: try to get fast forward to last decent spot
@@ -263,28 +270,33 @@ function sync() {
         remote_input_buffer.set(local_frame, INPUT.NONE);
         check_collision();
         state_buffer.set(local_frame, structuredClone(state));
-        if (demo_lag < local_last_sync) {
-            local_last_sync = 0;
-        }
+        // if (demo_lag < local_last_sync) {
+        //     local_last_sync = 0;
+        // }
     } else {
     // switch out this section with real thing later
-        const start_frame = local_frame - demo_lag - packet_length + 1;
-        const remote_msg = Array();
-        for (let i = 0; i < packet_length; i++) {
-            switch (local_input_buffer.get(start_frame+i)) {
-                case INPUT.LEFT:
-                    remote_msg.push(INPUT.RIGHT);
-                    break;
-                case INPUT.RIGHT:
-                    remote_msg.push(INPUT.LEFT);
-                    break;
-                case INPUT.PUNCH:
-                    remote_msg.push(INPUT.PUNCH);
-                    break;
-                default:
-                    remote_msg.push(INPUT.NONE);
-            }
-        }
+        // const start_frame = local_frame - demo_lag - packet_length + 1;
+        // const remote_msg = Array();
+        // for (let i = 0; i < packet_length; i++) {
+        //     switch (local_input_buffer.get(start_frame+i)) {
+        //         case INPUT.LEFT:
+        //             remote_msg.push(INPUT.RIGHT);
+        //             break;
+        //         case INPUT.RIGHT:
+        //             remote_msg.push(INPUT.LEFT);
+        //             break;
+        //         case INPUT.PUNCH:
+        //             remote_msg.push(INPUT.PUNCH);
+        //             break;
+        //         default:
+        //             remote_msg.push(INPUT.NONE);
+        //     }
+        // }
+
+
+        let remote = structuredClone(remote_data);
+        let remote_msg = remote.a;
+        let start_frame = remote.s;
 
 
         if (start_frame + packet_length - 1 <= local_last_sync) {
@@ -294,14 +306,46 @@ function sync() {
             check_collision();
             state_buffer.set(local_frame, structuredClone(state));
         } else {
+            state = state_buffer.get(local_last_sync);
 
+            let i = local_last_sync + 1;
+            if (i < start_frame) {
+                console.log("error");
+            }            
+            for(; i < start_frame + packet_length; i++) {
+                remote_input_buffer.set(i, remote_msg[i-start_frame]);
+                update_player_input(local_player, local_input_buffer.get(i));
+                update_player_input(remote_player, remote_input_buffer.get(i));
+                check_collision();
+                state_buffer.set(i, structuredClone(state));
+            }
+            const last_input = remote_msg.at(-1);
+        
+            for(; i <= local_frame; i++) {
 
-
-
+                remote_input_buffer.set(i, last_input);
+                update_player_input(local_player, local_input_buffer.get(i));
+                update_player_input(remote_player, remote_input_buffer.get(i));
+                check_collision()
+                state_buffer.set(i, structuredClone(state));
+            }
 
             local_last_sync = Math.max(local_last_sync, start_frame + packet_length - 1)
         }
     }
+}
+
+function send_data() {
+    let first_frame = local_frame - packet_length + 1;
+    let array = Array(packet_length);
+    for (let i = first_frame; i < first_frame + packet_length; i++) {
+        array[i-first_frame] = local_input_buffer.get(i);
+    }
+    let payload = {
+        s: first_frame,
+        a: array,
+    }
+    dc.send(JSON.stringify(payload));
 }
 
 
@@ -480,8 +524,11 @@ function setupDataChannel() {
         requestAnimationFrame(mainLoop);
     };
 
-    dc.onmessage = ({ data }) => {
-
+    dc.onmessage = ( {data} ) => {
+        if (local_last_sync < 0) {
+            local_last_sync = 0;
+        }
+        remote_data = JSON.parse(data);
     }
 }
 
