@@ -2,6 +2,7 @@ const boxMin = 50;
 const boxMax = 850;
 
 const hitbox_width = 120;
+const packet_length = 10;
 
 let true_game_over = false;
 
@@ -25,6 +26,8 @@ const PLAYER = Object.freeze({
     P2: 1,
 })
 
+
+// ring buffer for accessing frame data
 class FrameBuffer {
     constructor(length) {
         this.length = length;
@@ -58,7 +61,7 @@ class FrameBuffer {
 }
 
 
-let local_frame = 1; // should this start at 1 or 0?
+let local_frame = 1; 
 let local_last_sync = -1;
 // let local_player = Math.floor(Math.random()*2) == 0 ? PLAYER.P1 : PLAYER.P2;
 // let remote_player = local_player == PLAYER.P1 ? PLAYER.P2 : PLAYER.P1;
@@ -68,9 +71,6 @@ let remote_player = PLAYER.P2;
 
 
 
-// ring buffer for last 20ish frames of input
-// ring buffer for remote player
-// message (start_frame of input) 20 bits of input (10 frames)
 
 const local_input_buffer = new FrameBuffer(20);
 const remote_input_buffer = new FrameBuffer(20);
@@ -112,21 +112,11 @@ function update() {
         }
     }
 
-
-    // call sync
-
-
-    // this should probably be a method with input
-    // update_player_input(local_player, input);
-    local_input_buffer.set(local_frame,input);
+    local_input_buffer.set(local_frame, input);
 
     send_data();
     // demo_sync();
     sync();
-    // check for collisions and stuff
-    // update_player_input(local_player, input);
-    // check_collision();
-    // state_buffer.push(structuredClone(state));
 
     local_frame++;
 }
@@ -160,8 +150,6 @@ function check_collision() {
         }
     }
 
-
-    // check collision with two hitboxes
 
     p1_body = {
         x_0 : p1.x_pos,
@@ -234,10 +222,10 @@ function check_collision() {
 }
 
 function collides(rect1, rect2) {
-    if (rect1.x_1 >= rect2.x_0 &&    // r1 right edge past r2 left
-      rect1.x_0 <= rect2.x_1 &&    // r1 left edge past r2 right
-      rect1.y_1 >= rect2.y_0 &&    // r1 top edge past r2 bottom
-      rect1.y_0 <= rect2.y_1) {    // r1 bottom edge past r2 top
+    if (rect1.x_1 >= rect2.x_0 &&
+      rect1.x_0 <= rect2.x_1 &&   
+      rect1.y_1 >= rect2.y_0 &&
+      rect1.y_0 <= rect2.y_1) {    
         return true;
   }
 }
@@ -261,28 +249,8 @@ function update_player_input(player_enum, input) {
     }
 }
 
-// function sync () {
-//     // let  = temp_state
-//     // extract array of inputs from most recent packet structureClone
-//     // last_frame = udp.start_frame + ARRAY_LENGTH
-    
-//     // for i from last_sync to last_frame:
-//     //     if input[i] == predictedinput[i]:
-//                 //pass
-//             //else:
-//             // break
-//     // simulate game with those inputs
-//     // last_sync = last_frame
-//     // for last_sync to last_
-// }
-
 
 // const demo_lag = 2;
-const packet_length = 10;
-
-// TODO: try to get fast forward to last decent spot
-// TODO: check if local_last_sync > start_frame + packet_length case (seems to not work with variable syncing)
-
 // function demo_sync() {
 //     // const demo_lag = Math.floor(Math.random() * 3);
 //     if (local_last_sync == -1) {
@@ -350,30 +318,8 @@ function sync() {
         remote_input_buffer.set(local_frame, INPUT.NONE);
         check_collision();
         state_buffer.set(local_frame, structuredClone(state));
-        // if (demo_lag < local_last_sync) {
-        //     local_last_sync = 0;
-        // }
+
     } else {
-    // switch out this section with real thing later
-        // const start_frame = local_frame - demo_lag - packet_length + 1;
-        // const remote_msg = Array();
-        // for (let i = 0; i < packet_length; i++) {
-        //     switch (local_input_buffer.get(start_frame+i)) {
-        //         case INPUT.LEFT:
-        //             remote_msg.push(INPUT.RIGHT);
-        //             break;
-        //         case INPUT.RIGHT:
-        //             remote_msg.push(INPUT.LEFT);
-        //             break;
-        //         case INPUT.PUNCH:
-        //             remote_msg.push(INPUT.PUNCH);
-        //             break;
-        //         default:
-        //             remote_msg.push(INPUT.NONE);
-        //     }
-        // }
-
-
         let remote = structuredClone(remote_data);
         let remote_msg = remote.a;
         let start_frame = remote.s;
@@ -433,7 +379,6 @@ function send_data() {
 const pressedKeys = new Set();
 
 document.addEventListener('keydown', (event) => {
-    // only add if event.repeat is false
     pressedKeys.add(event.code);
 });
 
@@ -480,44 +425,19 @@ function draw() {
         ctx.textAlign = "center";
         ctx.font = "40px serif";
         if (winner == PLAYER.P1) {
-            ctx.fillText('Player 1 wins!', canvas.width / 2, canvas.height / (2/3));
+            ctx.fillText('Player 1 wins!', canvas.width / 2, canvas.height * (1/3));
         } else {
-            ctx.fillText('Player 2 wins!', canvas.width / 2, canvas.height / (2/3));
+            ctx.fillText('Player 2 wins!', canvas.width / 2, canvas.height * (1/3));
         }
     }
   }
 }
 
-
-
-// maybe some tag for fingerprints
-// fetch("http://localhost:7878", {
-//   method: "POST",
-// })
-//   .then((response) => {
-//     // Check if the request was successful
-//     if (!response.ok) {
-//       throw new Error(`HTTP error! status: ${response.status}`);
-//     }
-//     return response.text(); // Return a Promise that resolves with the text content
-//   })
-//   .then((textContent) => {
-//     console.log(textContent); // This will log "hello world"
-//     previous = Date.now();
-//     // pause until timestamp given by server
-
-//     requestAnimationFrame(mainLoop);
-//   })
-//   .catch((error) => {
-//     console.error("There was a problem with the fetch operation:", error);
-//   });
-
-
 let pc;
 let dc;
 let partnerKey;
 
-const ws = new WebSocket("ws://localhost:8001");
+const ws = new WebSocket(getWebSocketServer());
 ws.onopen = () => {
     console.log("Connected to signaling server.");
     const payload = {
@@ -580,7 +500,6 @@ ws.onmessage = async (message) => {
                     sendMessage({ sdp: pc.localDescription });
                 }
             } else if (event.candidate) {
-                // Add the incoming ICE candidate
                 await pc.addIceCandidate(new RTCIceCandidate(event.candidate));
             }
             break;
@@ -623,12 +542,15 @@ function setupDataChannel() {
     }
 }
 
-// chatInput.onkeypress = ({ keyCode }) => {
-//     if (keyCode !== 13 || chatInput.value === "") return;
-//     dc.send(chatInput.value);
-//     console.log(`< ${chatInput.value}`); 
-//     chatInput.value = "";
-// };
+function getWebSocketServer() {
+  if (window.location.host === "kirbyblox.github.io") {
+    return "wss://whiffle-game.koyeb.app/";
+  } else if (window.location.host === "localhost:8000") {
+    return "ws://localhost:8001/";
+  } else {
+    throw new Error(`Unsupported host: ${window.location.host}`);
+  }
+}
 
 
 function mainLoop() {
