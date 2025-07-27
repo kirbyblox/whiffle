@@ -544,7 +544,7 @@ function setupDataChannel() {
 
 function getWebSocketServer() {
   if (window.location.host === "kirbyblox.github.io") {
-    return "wss://whiffle-game.koyeb.app/";
+    return "wss://sparkling-tonya-kirbyblox-6ffb0185.koyeb.app/";
   } else if (window.location.host === "localhost:8000") {
     return "ws://localhost:8001/";
   } else {
