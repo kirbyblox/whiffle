@@ -13,10 +13,14 @@ let state = {
     player1: {
         x_pos: 150,
         punch_frame: 0,
+        block_stun: 0,
+        blocking: false,
     },
     player2: {
         x_pos: 750,
         punch_frame: 0,
+        block_stun: 0,
+        blocking: false,
     },
     game_over: false,
 }
@@ -197,10 +201,13 @@ function check_collision() {
             }
         }
         if (collides(p1_fist, p2_body)) {
-            state.game_over = true;
-            true_game_over = true;
-            winner = PLAYER.P1;
-
+            if (p2.blocking) {
+                p2.block_stun = 10;
+            } else {
+                state.game_over = true;
+                true_game_over = true;
+                winner = PLAYER.P1;
+            }
         }
     }
     if (p2.punch_frame <= 12 && p2.punch_frame >= 10) {
@@ -212,9 +219,13 @@ function check_collision() {
             }
         }
         if (collides(p2_fist, p1_body)) {
-            state.game_over = true;
-            true_game_over = true;
-            winner = PLAYER.P2;
+            if (p1.blocking) {
+                p1.block_stun = 10;
+            } else {
+                state.game_over = true;
+                true_game_over = true;
+                winner = PLAYER.P2;
+            }
 
         }
     }
@@ -233,7 +244,8 @@ function collides(rect1, rect2) {
 
 function update_player_input(player_enum, input) {
     let player = (player_enum == PLAYER.P1) ? state.player1 : state.player2;
-    if (player.punch_frame < 1) {
+    player.blocking = false;
+    if (player.punch_frame < 1 && player.block_stun < 1) {
         if (input == INPUT.PUNCH) {
             player.punch_frame = 18
         } else {
@@ -242,18 +254,23 @@ function update_player_input(player_enum, input) {
                     player.x_pos += 5;
                 } else {
                     player.x_pos += 4;
+                    player.blocking = true;
                 }
             }
             if (input == INPUT.LEFT) {
                 if (player_enum == PLAYER.P1) {
                     player.x_pos -= 4;
+                    player.blocking = true;
                 } else {
                     player.x_pos -= 5;
                 }
             }
         }
-    } else {
+    } else if (player.punch_frame >= 1) {
         player.punch_frame -= 1;
+    } else {
+        player.blocking = true;
+        player.block_stun -= 1;
     }
 }
 
