@@ -6,7 +6,7 @@ const packet_length = 10;
 
 let true_game_over = false;
 
-let winner;
+let winner = -2;
 
 
 let state = {
@@ -99,7 +99,7 @@ const timestep = 1000 / 60; // in ms so (1000ms / 1s) /60fps => 1000/60 ms per f
 
 function update() {
     let input = INPUT.NONE;
-    if (pressedKeys.has('KeyC')) {
+    if (pressedKeys.has('KeyU')) {
         input = INPUT.PUNCH;
     } else {
         if (pressedKeys.has('KeyD') && pressedKeys.has('KeyA')) {
@@ -238,10 +238,18 @@ function update_player_input(player_enum, input) {
             player.punch_frame = 18
         } else {
             if (input == INPUT.RIGHT) {
-                player.x_pos += 4;
+                if (player_enum == PLAYER.P1) {
+                    player.x_pos += 5;
+                } else {
+                    player.x_pos += 4;
+                }
             }
             if (input == INPUT.LEFT) {
-                player.x_pos -= 4;
+                if (player_enum == PLAYER.P1) {
+                    player.x_pos -= 4;
+                } else {
+                    player.x_pos -= 5;
+                }
             }
         }
     } else {
@@ -313,6 +321,7 @@ function update_player_input(player_enum, input) {
 // }
 
 function sync() {
+    console.log(local_frame);
     if (local_last_sync == -1) {
         update_player_input(local_player, local_input_buffer.get(local_frame));
         remote_input_buffer.set(local_frame, INPUT.NONE);
@@ -324,20 +333,24 @@ function sync() {
         let remote_msg = remote.a;
         let start_frame = remote.s;
 
-
-        if (start_frame + packet_length - 1 <= local_last_sync) {
+        if (start_frame + packet_length - 1 > local_frame) {
+            true_game_over = true;
+            winner = -1;
+        } else if (start_frame + packet_length - 1 <= local_last_sync) {
             remote_input_buffer.set(local_frame, remote_input_buffer.get(local_frame-1));
             update_player_input(local_player, local_input_buffer.get(local_frame));
             update_player_input(remote_player, remote_input_buffer.get(local_frame));
             check_collision();
             state_buffer.set(local_frame, structuredClone(state));
         } else {
+            if (local_last_sync + 1 < start_frame || local_last_sync < local_frame - 20) {
+                true_game_over = true;
+                winner = -1;
+                return;
+            }       
             state = state_buffer.get(local_last_sync);
-
             let i = local_last_sync + 1;
-            if (i < start_frame) {
-                console.log("error");
-            }            
+      
             for(; i < start_frame + packet_length; i++) {
                 remote_input_buffer.set(i, remote_msg[i-start_frame]);
                 update_player_input(local_player, local_input_buffer.get(i));
@@ -348,7 +361,6 @@ function sync() {
             const last_input = remote_msg.at(-1);
         
             for(; i <= local_frame; i++) {
-
                 remote_input_buffer.set(i, last_input);
                 update_player_input(local_player, local_input_buffer.get(i));
                 update_player_input(remote_player, remote_input_buffer.get(i));
@@ -371,6 +383,8 @@ function send_data() {
         s: first_frame,
         a: array,
     }
+    console.log("start frame:")
+    console.log(first_frame);
     dc.send(JSON.stringify(payload));
 }
 
@@ -426,8 +440,12 @@ function draw() {
         ctx.font = "40px serif";
         if (winner == PLAYER.P1) {
             ctx.fillText('Player 1 wins!', canvas.width / 2, canvas.height * (1/3));
-        } else {
+        } else if (winner == PLAYER.P2) {
             ctx.fillText('Player 2 wins!', canvas.width / 2, canvas.height * (1/3));
+        } else if (winner == -1) {
+            ctx.fillText('Desync Error', canvas.width / 2, canvas.height * (1/3));
+        } else {
+            ctx.fillText('Connection Error', canvas.width / 2, canvas.height * (1/3));            
         }
     }
   }
@@ -539,6 +557,10 @@ function setupDataChannel() {
             local_last_sync = 0;
         }
         remote_data = JSON.parse(data);
+    }
+
+    dc.onclose = () => {
+        true_game_over = true;
     }
 }
 
