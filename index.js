@@ -10,7 +10,6 @@ let demo_mode = true;
 
 let winner = -2;
 
-
 let state = {
     player1: {
         x_pos: 150,
@@ -78,9 +77,9 @@ let remote_player = PLAYER.P2;
 
 
 
-const local_input_buffer = new FrameBuffer(40);
-const remote_input_buffer = new FrameBuffer(40);
-const state_buffer = new FrameBuffer(40);
+let local_input_buffer = new FrameBuffer(40);
+let remote_input_buffer = new FrameBuffer(40);
+let state_buffer = new FrameBuffer(40);
 
 
 let remote_data = {
@@ -565,8 +564,7 @@ ws.onmessage = async (message) => {
                 await pc.addIceCandidate(new RTCIceCandidate(event.candidate));
             } else if (event.timestamp) {
                 previous = event.timestamp;
-                demo_mode = false;
-                local_last_sync = -1;
+                setupOnline();
             }
             break;
         case "error":
@@ -591,6 +589,32 @@ async function createPeerConnection() {
     };
 }
 
+function setupOnline() {
+    demo_mode = false;
+    local_last_sync = -1;
+    state = {
+        player1: {
+        x_pos: 150,
+            punch_frame: 0,
+            block_stun: 0,
+            blocking: false,
+        },
+        player2: {
+            x_pos: 800,
+            punch_frame: 0,
+            block_stun: 0,
+            blocking: false,
+        },
+        game_over: false,
+    }
+    local_frame = 1;
+    local_input_buffer = new FrameBuffer(40);
+    remote_input_buffer = new FrameBuffer(40);
+    state_buffer = new FrameBuffer(40);
+    state_buffer.set(0, structuredClone(state));
+}
+
+
 function setupDataChannel() {
     dc.onopen = () => {
         if (local_player == PLAYER.P1) {
@@ -599,8 +623,7 @@ function setupDataChannel() {
                 timestamp: previous,
             }
             sendMessage(payload);
-            demo_mode = false;
-            local_last_sync = -1;
+            setupOnline();
         }
     };
 
