@@ -373,7 +373,7 @@ function sync() {
             state = state_buffer.get(local_last_sync);
             let i = local_last_sync + 1;
             for(; i <= local_frame; i++) {
-                remote_input_buffer.set(i, last_input);
+                remote_input_buffer.set(i, remote_msg[i-start_frame]);
                 update_player_input(local_player, local_input_buffer.get(i));
                 update_player_input(remote_player, remote_input_buffer.get(i));
                 check_collision()
@@ -642,6 +642,7 @@ function setupDataChannel() {
     }
 
     dc.onclose = () => {
+        console.log("dc closed");
         true_game_over = true;
     }
 }
