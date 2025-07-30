@@ -2,7 +2,7 @@ const boxMin = 50;
 const boxMax = 900;
 
 const hitbox_width = 120;
-const packet_length = 10;
+const packet_length = 20;
 
 let true_game_over = false;
 
@@ -78,9 +78,9 @@ let remote_player = PLAYER.P2;
 
 
 
-const local_input_buffer = new FrameBuffer(20);
-const remote_input_buffer = new FrameBuffer(20);
-const state_buffer = new FrameBuffer(20);
+const local_input_buffer = new FrameBuffer(40);
+const remote_input_buffer = new FrameBuffer(40);
+const state_buffer = new FrameBuffer(40);
 
 
 let remote_data = {
@@ -302,7 +302,7 @@ function update_player_input(player_enum, input) {
 }
 
 
-const demo_lag = 5;
+const demo_lag = 5; // change to 12?
 function demo_sync() {
     if (local_frame <= demo_lag) {
         remote_input_buffer.set(local_frame, INPUT.NONE);
@@ -328,15 +328,6 @@ function demo_sync() {
             }
         }
         let i = local_last_sync + 1;
-        // console.log("hit0");
-        // for(;i < start_frame + packet_length; i++) {
-        //     console.log("hit1");
-        //     if (remote_input_buffer.get(i+1) != remote_msg[i-start_frame-1] || state_buffer.get(i+1) == 0) {
-        //         console.log("hit2");
-        //         break;
-        //     }
-        // }
-        // seems to be going 1 state too far?
 
         state = state_buffer.get(i-1);
         if(state.game_over) {
@@ -460,8 +451,7 @@ function draw() {
     const p2_pos = state.player2.x_pos;
     ctx.strokeRect(p1_pos, 250, spriteWidth, 200);
     ctx.strokeRect(p2_pos, 250, spriteWidth, 200);
-    console.log(state.player1.punch_frame);
-    console.log(state.player2.punch_frame);
+
 
     if (state.player1.punch_frame < 1) {
         // pass
