@@ -369,9 +369,17 @@ function sync() {
         let start_frame = remote.s;
 
         if (start_frame + packet_length - 1 > local_frame) {
-            true_game_over = true;
-            winner = -1;
-            return;
+            console.log("message from future");
+            state = state_buffer.get(local_last_sync);
+            let i = local_last_sync + 1;
+            for(; i <= local_frame; i++) {
+                remote_input_buffer.set(i, last_input);
+                update_player_input(local_player, local_input_buffer.get(i));
+                update_player_input(remote_player, remote_input_buffer.get(i));
+                check_collision()
+                state_buffer.set(i, structuredClone(state));
+            }
+            local_last_sync = Math.max(local_last_sync, start_frame + packet_length - 1);
         } else if (start_frame + packet_length - 1 <= local_last_sync) {
             remote_input_buffer.set(local_frame, remote_input_buffer.get(local_frame-1));
             update_player_input(local_player, local_input_buffer.get(local_frame));
@@ -617,14 +625,14 @@ function setupOnline() {
 
 function setupDataChannel() {
     dc.onopen = () => {
-        if (local_player == PLAYER.P1) {
+        // if (local_player == PLAYER.P1) {
             previous = Date.now() + 3000;
-            const payload = {
-                timestamp: previous,
-            }
-            sendMessage(payload);
+            // const payload = {
+            //     timestamp: previous,
+            // }
+            // sendMessage(payload);
             setupOnline();
-        }
+        // }
     };
 
     dc.onmessage = ( {data} ) => {
