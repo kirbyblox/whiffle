@@ -387,10 +387,11 @@ function sync() {
             check_collision();
             state_buffer.set(local_frame, structuredClone(state));
         } else {
-            if (local_last_sync + 1 < start_frame || local_last_sync < local_frame - 20) {
-                true_game_over = true;
-                winner = -1;
-                return;
+            if (local_last_sync + 1 < start_frame || local_last_sync < local_frame - 40) {
+                console.log("too much desync")
+                // true_game_over = true;
+                // winner = -1;
+                // return;
             }       
             state = state_buffer.get(local_last_sync);
             let i = local_last_sync + 1;
@@ -431,8 +432,6 @@ function send_data() {
         s: first_frame,
         a: array,
     }
-    console.log("start frame:")
-    console.log(first_frame);
     dc.send(JSON.stringify(payload));
 }
 
