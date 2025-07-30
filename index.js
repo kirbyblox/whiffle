@@ -667,6 +667,6 @@ function mainLoop() {
 // requestAnimationFrame(mainLoop);
 
 lag = 0;
-previous = Date.now() + 1000;
+previous = Date.now() + 10000;
 state_buffer.set(0, structuredClone(state));
 requestAnimationFrame(mainLoop);
