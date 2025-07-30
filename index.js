@@ -218,6 +218,7 @@ function check_collision() {
             }
         } else if (collides(p1_fist, p2_body)) {
             if (p2.blocking) {
+                resolve_collision(140);
                 p2.block_stun = 10;
             } else {
                 player2_hit = true;
@@ -229,10 +230,9 @@ function check_collision() {
             if (collides(p2_fist, p1_arm)) {
                 player1_hit = true;
             }
-        }
-        if (collides(p2_fist, p1_body)) {
+        } else if (collides(p2_fist, p1_body)) {
             if (p1.blocking) {
-                // resolve_collision()
+                resolve_collision(140);
                 p1.block_stun = 10;
             } else {
                 player1_hit = true;
@@ -245,11 +245,14 @@ function check_collision() {
     }
 
     if (player1_hit && player2_hit) {
-        // resolve_collision(240);
+        resolve_collision(240);
+
     } else if (player1_hit) {
+
         state.game_over = true;
         winner = PLAYER.P2;
     } else if (player2_hit) {
+
         state.game_over = true;
         winner = PLAYER.P1;
     }
@@ -302,7 +305,10 @@ function update_player_input(player_enum, input) {
 const demo_lag = 5;
 function demo_sync() {
     if (local_frame <= demo_lag) {
-        remote_input_buffer.push(INPUT.NONE);
+        remote_input_buffer.set(local_frame, INPUT.NONE);
+        check_collision();
+        state_buffer.set(local_frame, structuredClone(state));
+
     } else {
         const start_frame = local_frame - demo_lag - packet_length + 1;
         const remote_msg = Array();
@@ -322,14 +328,21 @@ function demo_sync() {
             }
         }
         let i = local_last_sync + 1;
+        // console.log("hit0");
         // for(;i < start_frame + packet_length; i++) {
-        //     if (remote_input_buffer.get(i) != remote_msg[i-start_frame]) {
+        //     console.log("hit1");
+        //     if (remote_input_buffer.get(i+1) != remote_msg[i-start_frame-1] || state_buffer.get(i+1) == 0) {
         //         console.log("hit2");
         //         break;
         //     }
         // }
-        state = state_buffer.get(i - 1);
+        // seems to be going 1 state too far?
 
+        state = state_buffer.get(i-1);
+        if(state.game_over) {
+            true_game_over = true;
+            return;
+        }
 
         // for loop from end of diff to packet_length
         for(; i < start_frame + packet_length; i++) {
@@ -340,22 +353,21 @@ function demo_sync() {
             state_buffer.set(i, structuredClone(state));
         }
         const last_input = remote_msg.at(-1);
-
+        
         for(; i <= local_frame; i++) {
-            remote_input_buffer.set(i, last_input);            
+            // console.log("hit last");
+            // why <=  instead of <?? 
+            remote_input_buffer.set(i, last_input);
             update_player_input(local_player, local_input_buffer.get(i));
             update_player_input(remote_player, remote_input_buffer.get(i));
-            check_collision();
+            check_collision()
             state_buffer.set(i, structuredClone(state));
         }
-        remote_input_buffer.push(last_input);
-        update_player_input(remote_player, last_input);
-        local_last_sync = Math.max(local_last_sync, start_frame + packet_length);
+        local_last_sync = Math.max(local_last_sync, start_frame + packet_length - 1); // should be start_frame + packet_length -1 ? but breaks things
     }
 }
 
 function sync() {
-    console.log(local_frame);
     if (local_last_sync == -1) {
         update_player_input(local_player, local_input_buffer.get(local_frame));
         remote_input_buffer.set(local_frame, INPUT.NONE);
@@ -448,6 +460,8 @@ function draw() {
     const p2_pos = state.player2.x_pos;
     ctx.strokeRect(p1_pos, 250, spriteWidth, 200);
     ctx.strokeRect(p2_pos, 250, spriteWidth, 200);
+    console.log(state.player1.punch_frame);
+    console.log(state.player2.punch_frame);
 
     if (state.player1.punch_frame < 1) {
         // pass
@@ -477,8 +491,10 @@ function draw() {
         ctx.textAlign = "center";
         ctx.font = "40px serif";
         if (winner == PLAYER.P1) {
+            console.log("player 1 wins");
             ctx.fillText('Player 1 wins!', canvas.width / 2, canvas.height * (1/3));
         } else if (winner == PLAYER.P2) {
+            console.log("player 2 wins");
             ctx.fillText('Player 2 wins!', canvas.width / 2, canvas.height * (1/3));
         } else if (winner == -1) {
             ctx.fillText('Desync Error', canvas.width / 2, canvas.height * (1/3));
@@ -661,6 +677,6 @@ function mainLoop() {
 // requestAnimationFrame(mainLoop);
 
 lag = 0;
-previous = Date.now() + 10000;
+previous = Date.now() + 1000;
 state_buffer.set(0, structuredClone(state));
 requestAnimationFrame(mainLoop);
