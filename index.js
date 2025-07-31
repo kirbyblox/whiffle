@@ -4,6 +4,8 @@ const boxMax = 900;
 const hitbox_width = 120;
 const packet_length = 20;
 
+let new_previous = -1;
+
 let offset = 0;
 
 const sync_polls = 4;
@@ -583,9 +585,6 @@ ws.onmessage = async (message) => {
                 }
             } else if (event.candidate) {
                 await pc.addIceCandidate(new RTCIceCandidate(event.candidate));
-            } else if (event.timestamp) {
-                previous = event.timestamp;
-                setupOnline();
             }
             break;
         case "error":
@@ -633,8 +632,10 @@ function setupOnline() {
         game_over: false,
     }
     local_frame = 1;
+    lag = 0;
+    previous = new_previous;
     local_input_buffer = new FrameBuffer(40);
-    remote_input_buffer = new FrameBuffer(40);
+    remote_input_bufferlag = new FrameBuffer(40);
     state_buffer = new FrameBuffer(40);
     state_buffer.set(0, structuredClone(state));
 }
@@ -678,7 +679,7 @@ function setupDataChannel() {
                     offset = offset_array[delta_array.indexOf(Math.min(...delta_array))];
                     const start = syncedTime() + 3000;
                     dc.send(JSON.stringify({t: 2, s: start}));
-                    previous = start;
+                    new_previous = start;
                     console.log("previous");
                     console.log(previous);
                     console.log("offset");
@@ -690,7 +691,7 @@ function setupDataChannel() {
                 }
                 break;
             case 2:
-                previous = remote_data.s;
+                new_previous = remote_data.s;
                 console.log("previous");
                 console.log(previous);
                 console.log("offset");
