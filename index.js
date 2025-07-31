@@ -4,6 +4,19 @@ const boxMax = 900;
 const hitbox_width = 120;
 const packet_length = 20;
 
+let offset = 0;
+
+const sync_polls = 4;
+
+let poll_count = 0;
+
+let t_0 = -1;
+
+const offset_array = Array(sync_polls);
+const delta_array = Array(sync_polls);
+
+let synced = false;
+
 let true_game_over = false;
 
 let demo_mode = true;
@@ -429,6 +442,7 @@ function send_data() {
         array[i-first_frame] = local_input_buffer.get(i);
     }
     let payload = {
+        t: 6,
         s: first_frame,
         a: array,
     }
@@ -596,6 +610,10 @@ async function createPeerConnection() {
     };
 }
 
+function syncedTime() {
+    return Date.now() + offset;
+}
+
 function setupOnline() {
     demo_mode = false;
     local_last_sync = -1;
@@ -625,26 +643,63 @@ function setupOnline() {
 function setupDataChannel() {
     dc.onopen = () => {
         // if (local_player == PLAYER.P1) {
-            previous = Date.now() + 3000;
+            // previous = syncedTime()+ 3000;
             // const payload = {
             //     timestamp: previous,
             // }
             // sendMessage(payload);
-            setupOnline();
+            // setupOnline();
         // }
+        if (local_player == PLAYER.P1) {
+            t_0 = Date.now();
+            dc.send(JSON.stringify({t:0, t_0: t_0}));
+        }
     };
 
     dc.onmessage = ( {data} ) => {
-        if (local_last_sync < 0) {
-            local_last_sync = 0;
-        }
+        // if (local_last_sync < 0) {
+        //     local_last_sync = 0;
+        // }
+        const timestamp = Date.now();
         remote_data = JSON.parse(data);
-    }
+        switch (remote_data.t) {
+            case 0:
+                dc.send(JSON.stringify({t: 1, t_1: timestamp, t_2: Date.now()}));
+                break;
+            case 1:
+                if (poll_count < sync_polls) {
+                    offset_array[poll_count] = (remote_data.t_1- t_0) +(remote_data.t_2 - timestamp) / 2;
+                    delta_array[poll_count] = (timestamp - t_0) - (remote_data.t_2 - remote_data.t_1);
+                }
+                poll_count += 1;
+                if (poll_count == sync_polls) {
+                    console.log(offset_array);
+                    console.log(delta_array);
+                    const start = syncedTime() + 3000;
+                    offset = offset_array[delta_array.indexOf(Math.min(...delta_array))];
+                    dc.send(JSON.stringify({t: 2, s: start}));
+                    previous = start;
+                    setupOnline();
+                } else {
+                    t_0 = Date.now();
+                    dc.send(JSON.stringify({t:0, t_0: t_0}));
+                }
+                break;
+            case 2:
+                previous = remote_data.s;
+                setupOnline();
+                break;
+            default:
+                if (local_last_sync < 0) {
+                    local_last_sync = 0;
+                }
+        }
+    };
 
     dc.onclose = () => {
         console.log("dc closed");
         true_game_over = true;
-    }
+    };
 }
 
 function getWebSocketServer() {
@@ -659,7 +714,7 @@ function getWebSocketServer() {
 
 
 function mainLoop() {
-    let current = Date.now();
+    let current = syncedTime();
     if (current < previous) {
         const ctx = canvas.getContext("2d");
         ctx.font = "40px serif";
