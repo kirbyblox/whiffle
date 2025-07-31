@@ -611,7 +611,7 @@ async function createPeerConnection() {
 }
 
 function syncedTime() {
-    return Date.now() - offset;
+    return Date.now() + offset;
 }
 
 function setupOnline() {
