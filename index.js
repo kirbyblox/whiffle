@@ -383,6 +383,7 @@ function sync() {
 
         if (start_frame + packet_length - 1 > local_frame) {
             console.log("message from future");
+            consol
             state = state_buffer.get(local_last_sync);
             let i = local_last_sync + 1;
             for(; i <= local_frame; i++) {
@@ -675,8 +676,8 @@ function setupDataChannel() {
                 if (poll_count == sync_polls) {
                     console.log(offset_array);
                     console.log(delta_array);
-                    const start = syncedTime() + 3000;
                     offset = offset_array[delta_array.indexOf(Math.min(...delta_array))];
+                    const start = syncedTime() + 3000;
                     dc.send(JSON.stringify({t: 2, s: start}));
                     previous = start;
                     setupOnline();
