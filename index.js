@@ -728,7 +728,7 @@ function mainLoop() {
         lag += elapsed;
         // let count = 0;
         if (lag >= timestep) {
-            console.log(syncedTime);
+            console.log(syncedTime());
             console.log(Date.now());
             while (lag >= timestep) {
             update();
