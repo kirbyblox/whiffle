@@ -716,6 +716,10 @@ function getWebSocketServer() {
 function mainLoop() {
     let current = syncedTime();
     if (current < previous) {
+        console.log('previous');
+        console.log(previous);
+        console.log('current');
+        console.log(current);
         const ctx = canvas.getContext("2d");
         ctx.font = "40px serif";
         ctx.clearRect(0, 0, canvas.width, canvas.height);
