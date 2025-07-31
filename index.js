@@ -383,7 +383,6 @@ function sync() {
 
         if (start_frame + packet_length - 1 > local_frame) {
             console.log("message from future");
-            consol
             state = state_buffer.get(local_last_sync);
             let i = local_last_sync + 1;
             for(; i <= local_frame; i++) {
@@ -612,7 +611,7 @@ async function createPeerConnection() {
 }
 
 function syncedTime() {
-    return Date.now() + offset;
+    return Date.now() - offset;
 }
 
 function setupOnline() {
