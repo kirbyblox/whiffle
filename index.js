@@ -679,6 +679,10 @@ function setupDataChannel() {
                     const start = syncedTime() + 3000;
                     dc.send(JSON.stringify({t: 2, s: start}));
                     previous = start;
+                    console.log("previous");
+                    console.log(previous);
+                    console.log("offset");
+                    console.log(offset);
                     setupOnline();
                 } else {
                     t_0 = Date.now();
@@ -687,6 +691,10 @@ function setupDataChannel() {
                 break;
             case 2:
                 previous = remote_data.s;
+                console.log("previous");
+                console.log(previous);
+                console.log("offset");
+                console.log(offset);
                 setupOnline();
                 break;
             default:
@@ -716,10 +724,7 @@ function getWebSocketServer() {
 function mainLoop() {
     let current = syncedTime();
     if (current < previous) {
-        console.log('previous');
-        console.log(previous);
-        console.log('current');
-        console.log(current);
+
         const ctx = canvas.getContext("2d");
         ctx.font = "40px serif";
         ctx.clearRect(0, 0, canvas.width, canvas.height);
