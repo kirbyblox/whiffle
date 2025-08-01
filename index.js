@@ -635,7 +635,7 @@ function setupOnline() {
     lag = 0;
     previous = new_previous;
     local_input_buffer = new FrameBuffer(40);
-    remote_input_bufferlag = new FrameBuffer(40);
+    remote_input_buffer = new FrameBuffer(40);
     state_buffer = new FrameBuffer(40);
     state_buffer.set(0, structuredClone(state));
 }
