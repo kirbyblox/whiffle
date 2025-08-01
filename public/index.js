@@ -653,7 +653,7 @@ function getWebSocketServer() {
   } else if (window.location.host === "localhost:8000") {
     return "ws://localhost:8001/";
   } else {
-    throw new Error(`Unsupported host: ${window.location.host}`);
+    return "wss://sparkling-tonya-kirbyblox-6ffb0185.koyeb.app/";
   }
 }
 
