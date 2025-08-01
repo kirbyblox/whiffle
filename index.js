@@ -669,7 +669,7 @@ function setupDataChannel() {
                 break;
             case 1:
                 if (poll_count < sync_polls) {
-                    offset_array[poll_count] = (remote_data.t_1- t_0) +(remote_data.t_2 - timestamp) / 2;
+                    offset_array[poll_count] = ((remote_data.t_1- t_0) +(remote_data.t_2 - timestamp)) / 2;
                     delta_array[poll_count] = (timestamp - t_0) - (remote_data.t_2 - remote_data.t_1);
                 }
                 poll_count += 1;
